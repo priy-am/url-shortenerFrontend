@@ -84,14 +84,6 @@ export default function Home() {
         return updated;
       });
 
-      // also update admin list if loaded
-      setList((prev) =>
-        prev.map((u) =>
-          u.code === code || u.shortUrl?.endsWith(code)
-            ? { ...u, clicks: (u.clicks || 0) + 1 }
-            : u
-        )
-      );
 
       // open the short URL — let the browser follow the 302
       window.open(
