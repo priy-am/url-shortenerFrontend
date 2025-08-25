@@ -9,7 +9,7 @@ import {
   BarChart3,
   Sparkles,
 } from "lucide-react";
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer, toast } from "react-toastify";
 
 export default function Home() {
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000";
@@ -20,10 +20,11 @@ export default function Home() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(false);
-  // const { toast } = useToast();
+  const [adminLoading, setAdminLoading] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
     setResult(null);
     try {
@@ -38,16 +39,22 @@ export default function Home() {
       console.log("short url", data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const copy = async () => {
     if (result?.shortUrl) await navigator.clipboard.writeText(result.shortUrl);
-    toast.success("Copied to clipboard!", { position: "top-center", autoClose: 2000 });
+    toast.success("Copied to clipboard!", {
+      position: "top-center",
+      autoClose: 2000,
+    });
   };
 
   const fetchAdmin = async () => {
     try {
+      setAdminLoading(true);
       const res = await fetch(`${API_BASE}/api/url/admin/urls`, {
         headers: { "x-admin-token": ADMIN_TOKEN },
       });
@@ -56,53 +63,56 @@ export default function Home() {
       setList(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setAdminLoading(false);
     }
   };
 
   const redirect = async (shortUrlOrCode) => {
-  try {
-    const code = shortUrlOrCode.includes("/")
-      ? shortUrlOrCode.split("/").filter(Boolean).pop()
-      : shortUrlOrCode;
+    try {
+      const code = shortUrlOrCode.includes("/")
+        ? shortUrlOrCode.split("/").filter(Boolean).pop()
+        : shortUrlOrCode;
 
-    // optimistic UI update: bump clicks locally
-    setResult((prev) => {
-      if (!prev) return prev;
-      const matches = prev.code === code || prev.shortUrl?.endsWith(code);
-      if (!matches) return prev;
-      const updated = { ...prev, clicks: (prev.clicks || 0) + 1 };
-      localStorage.setItem("lastShort", JSON.stringify(updated));
-      return updated;
-    });
+      // optimistic UI update: bump clicks locally
+      setResult((prev) => {
+        if (!prev) return prev;
+        const matches = prev.code === code || prev.shortUrl?.endsWith(code);
+        if (!matches) return prev;
+        const updated = { ...prev, clicks: (prev.clicks || 0) + 1 };
+        localStorage.setItem("lastShort", JSON.stringify(updated));
+        return updated;
+      });
 
-    // also update admin list if loaded
-    setList((prev) =>
-      prev.map((u) =>
-        (u.code === code || u.shortUrl?.endsWith(code))
-          ? { ...u, clicks: (u.clicks || 0) + 1 }
-          : u
-      )
-    );
+      // also update admin list if loaded
+      setList((prev) =>
+        prev.map((u) =>
+          u.code === code || u.shortUrl?.endsWith(code)
+            ? { ...u, clicks: (u.clicks || 0) + 1 }
+            : u
+        )
+      );
 
-    // open the short URL — let the browser follow the 302
-    window.open(`${API_BASE}/api/url/${code}`, "_blank", "noopener,noreferrer");
-  } catch (error) {
-    console.log(error);
-  }
-};
-
-
+      // open the short URL — let the browser follow the 302
+      window.open(
+        `${API_BASE}/api/url/${code}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   // restore last shortened URL on page load
-useEffect(() => {
-  const last = localStorage.getItem("lastShort");
-  if (last) setResult(JSON.parse(last));
-}, []);
-
+  useEffect(() => {
+    const last = localStorage.getItem("lastShort");
+    if (last) setResult(JSON.parse(last));
+  }, []);
 
   return (
     <>
-    <ToastContainer />
+      <ToastContainer />
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center p-6">
         <div className="w-full max-w-4xl space-y-8">
           {/* Hero Section */}
@@ -223,62 +233,70 @@ useEffect(() => {
                       <Eye className="w-5 h-5" />
                       URL Analytics
                     </h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-left border-b border-gray-300">
-                            <th className="p-3 font-semibold text-gray-700">
-                              Short URL
-                            </th>
-                            <th className="p-3 font-semibold text-gray-700">
-                              Original URL
-                            </th>
-                            <th className="p-3 font-semibold text-center text-gray-700">
-                              Clicks
-                            </th>
-                            <th className="p-3 font-semibold text-gray-700">
-                              Created
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {list.map((u) => (
-                            <tr
-                              key={u._id}
-                              className="border-b border-gray-200 hover:bg-white/80 transition-colors"
-                            >
-                              <td className="p-3">
-                                <div
-                                  onClick={() => redirect(u.shortUrl)}
-                                  // target="_blank"
-                                  // rel="noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                                >
-                                  {u.shortUrl.split("//").pop()}
-                                  <ExternalLink className="w-3 h-3" />
-                                </div>
-                              </td>
-                              <td
-                                className="p-3 max-w-[20rem] truncate text-gray-600"
-                                title={u.longUrl}
-                              >
-                                {u.longUrl}
-                              </td>
-                              <td className="p-3 text-center">
-                                <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
-                                  {u.clicks}
-                                  <BarChart3 className="w-3 h-3" />
-                                </span>
-                              </td>
-                              <td className="p-3 text-gray-500 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(u.createdAt).toLocaleDateString()}
-                              </td>
+
+                    {adminLoading ? (
+                      <div className="flex justify-center items-center py-10">
+                        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+                        <span className="ml-3 text-gray-600 font-medium">
+                          Loading...
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left border-b border-gray-300">
+                              <th className="p-3 font-semibold text-gray-700">
+                                Short URL
+                              </th>
+                              <th className="p-3 font-semibold text-gray-700">
+                                Original URL
+                              </th>
+                              <th className="p-3 font-semibold text-center text-gray-700">
+                                Clicks
+                              </th>
+                              <th className="p-3 font-semibold text-gray-700">
+                                Created
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {list.map((u) => (
+                              <tr
+                                key={u._id}
+                                className="border-b border-gray-200 hover:bg-white/80 transition-colors"
+                              >
+                                <td className="p-3">
+                                  <div
+                                    onClick={() => redirect(u.shortUrl)}
+                                    className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    {u.shortUrl.split("//").pop()}
+                                    <ExternalLink className="w-3 h-3" />
+                                  </div>
+                                </td>
+                                <td
+                                  className="p-3 max-w-[20rem] truncate text-gray-600"
+                                  title={u.longUrl}
+                                >
+                                  {u.longUrl}
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
+                                    {u.clicks}
+                                    <BarChart3 className="w-3 h-3" />
+                                  </span>
+                                </td>
+                                <td className="p-3 text-gray-500 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  {new Date(u.createdAt).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
